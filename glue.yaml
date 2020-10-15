@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Simple Glue template.
+
+Parameters:
+  DataBucketName:
+    Type: String
+  TempLocDatabaseName:
+    Type: String
+    Default: "noaa-templocdate-db"
+
+Resources:
+  TempLocDatabase:
+    Type: "AWS::Glue::Database"
+    Properties:
+      DatabaseInput:
+        Description: "NOAA Temperature and Location database."
+        Name: !Ref TempLocDatabaseName
+      CatalogId: !Ref AWS::AccountId
+  #
+  # TempLocTable:
+  #   Type: "AWS::Glue::Table"
+  #   DependsOn: TempLocDatabase
+  #   Properties:
+  #     CatalogId: !Ref AWS::AccountId
+  #     DatabaseName: !Ref TempLocDatabase
+  #     TableInput:
+  #
+
+  Crawler:
+    Type: "AWS::Glue::Crawler"
+    Properties:
+      Name: !Sub '${AWS::StackName}-${AWS::Region}-crawler'
+      Role: !GetAtt GlueRole.Arn
+      DatabaseName: !Ref TempLocDatabase
+      Targets:
+        S3Targets:
+          - Path: !Ref DataBucketName
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+
+  GlueRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-${AWS::Region}-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - glue.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:ListBucket"
+                  - "s3:DeleteObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${DataBucketName}"
+                  - !Sub "arn:aws:s3:::${DataBucketName}/*"
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}"
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}/*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole
+      Path: "/"
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-${AWS::AccountId}${AWS::Region}-artifacts'
