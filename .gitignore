@@ -1,0 +1,7 @@
+*.nc
+*.nc.gz
+bin
+include
+lib
+pyvenv.cfg
+*.csv
